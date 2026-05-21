@@ -174,11 +174,27 @@ quantitative (no magnitude bound on the proof's "fixed values"; the
 S-CEO θ-ball volume estimate reused for M-S-UEO and wNR is derived for
 honest-scale `(q00, q01)` only; the implicit existential quantifier
 over algebraic preimages is not restricted to honest-norm preimages).
-The witnesses fall *inside* the proof's algebraic domain (each pk has
-a valid NTRU preimage with `f·G − g·F = 1`); they are not "outside the
-proof's assumed key class".  This artifact does **not** falsify HAWK
-SUF-CMA on honestly generated keys, nor S-CEO / S-DEO with honest
-signature reuse.
+The same θ-ball estimate and implicit existential underpin the S-CEO
+and S-DEO proofs in §5.1, so all four BUFF proofs of HAWK in §5.1 are
+structurally unsound on the verifier-accepted public-key domain; this
+artifact ships empirical counterexamples for MBS, M-S-UEO, and wNR,
+and does not exhibit witnesses against the S-CEO or S-DEO games for
+this specific weak-key family.  The witnesses fall *inside* the
+proof's algebraic domain (each pk has a valid NTRU preimage with
+`f·G − g·F = 1`); they are not "outside the proof's assumed key class".
+
+This artifact does **not** falsify HAWK SUF-CMA on honestly generated
+keys, and does **not** ship S-CEO / S-DEO witnesses with honest
+signature reuse on this weak-key family.
+
+The MBS result also closes a route in the downstream paper Düzlü-Struck
+2024/1669, which generically reduces S-UEO and wNR of PS-3-transformed
+schemes to MBS of the underlying scheme: HAWK is a PS-3-transformed
+scheme in that paper's sense, and 2024/1669's narrative that "MBS rules
+out effective weak keys" lifts ADMSW24's HAWK ✓ as the canonical
+lattice case.  The malformed `(pk, sig)` shipped here is exactly the
+kind of effective weak key that narrative says MBS forbids.  See the
+*Cascade* section of `CLAIMS.md`.
 
 ## License
 
