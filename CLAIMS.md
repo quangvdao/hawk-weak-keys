@@ -278,9 +278,10 @@ public-key validity predicate that excludes malformed `(q00, q01)`
 bound on `K(pub) = max_u |q01_u| / sqrt(q00_u)`, both checkable in
 O(n log n) at verify time), or (b) tightening the proof
 (re-quantifying over all algebraic preimages and re-deriving the
-θ-ball count over the verifier-accepted domain).  The companion
-conceptual work targets path (a); this artifact is silent on which
-patch is preferred.
+θ-ball count over the verifier-accepted domain).  This artifact is
+silent on which patch is preferred; it only documents that without
+one of them the BUFF proofs are unsound for the verifier as
+specified.
 
 ## What is NOT claimed
 
@@ -293,11 +294,11 @@ The artifact does **not** claim, and the experiments do **not** support:
 
 2. **S-CEO or S-DEO is broken with honest-signature reuse.**  ADMSW24's
    S-CEO and S-DEO games require the adversary to use a signing-oracle
-   signature on the honest public key.  The natural attack of reusing
-   honest C-keygen signatures under the malformed public-key family
-   was tested over tens of thousands of trials in our companion probes
-   and produced no hits.  This artifact ships the positive MBS /
-   M-S-UEO / wNR results only.
+   signature on the honest public key.  This artifact does not exhibit
+   S-CEO or S-DEO witnesses and ships only the positive MBS / M-S-UEO /
+   wNR vectors; the natural attack of reusing honest signatures under
+   a malformed public-key family is not addressed by these vectors and
+   we make no claim about it here.
 
 3. **The malformed pk has no algebraic NTRU preimage.**  False.  For
    the constant family `q00 = 1, q01 = a` there is the explicit
