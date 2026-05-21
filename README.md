@@ -1,0 +1,180 @@
+# HAWK Weak-Key Counterexamples: Reproducibility Artifact
+
+This artifact provides byte-level test vectors that falsify three BUFF
+properties of HAWK Round 2 over the verifier-accepted, byte-decodable
+public-key domain.  Each vector is verified by **two independent
+implementations**: the unmodified vendored HAWK Round 2 C reference and
+the unmodified vendored HAWK Round 2 Python reference (`hawk-py`),
+both shipped by the HAWK authors at <https://hawk-sign.info/submission.zip>.
+
+The artifact is fully self-contained.  It contains no novel verifier code:
+all verification is performed by the HAWK authors' own published
+implementations.  Encoding is performed by the HAWK authors' own
+`Extra/hawk-py/codec.py` only.
+
+## Claims (one-line summary)
+
+For every `(parameter set, claim)` pair, every record in the corresponding
+`vectors/kat/*.rsp` file accepts under both verifiers:
+
+| claim     | parameter sets         | what is shown |
+|-----------|------------------------|---------------|
+| MBS       | Hawk-256, 512, 1024    | one malformed `(pk, sig)` accepts two distinct messages |
+| M-S-UEO   | Hawk-256, 512, 1024    | one `(msg, sig)` accepts under four distinct malformed pks |
+| wNR       | Hawk-256, 512, 1024    | one fixed malformed `(pk, sig)` accepts every SHAKE-derived hidden message in 100/100 trials |
+
+See `CLAIMS.md` for the precise BUFF-game framing, what is and is not broken,
+and the literature anchors.
+
+## Reproduction (single command)
+
+The recommended path is the pinned Docker image:
+
+```bash
+cd hawk-weak-keys
+docker build -t hawk-weak-keys -f docker/Dockerfile .
+docker run --rm hawk-weak-keys
+```
+
+This runs `docker/reproduce.sh`, which:
+
+1. Re-derives every test vector from its deterministic recipe via `src/generate_vectors.py`.
+2. Diffs the regenerated vectors against the shipped `vectors/SHA256SUMS` manifest (byte-identical).
+3. Builds and runs the C verifier on every `.rsp` file and confirms all-accept (full 318 records).
+4. Runs the Python verifier on every MBS / M-S-UEO record (full, 18) and a 5-record sample of each wNR file (15 of 300).  Set `HAWK_WNR_FULL=1` to force a full Python check on all 300 wNR records.
+5. Prints `ARTIFACT REPRODUCIBLE` iff every step passed.
+
+End-to-end runtime on a recent laptop: ~1m30s with the default sampled
+Python wNR check, ~30-60 minutes with `HAWK_WNR_FULL=1`.  The C-reference
+side always covers every record on every set.
+
+Without Docker (requires `python3 >= 3.10`, `gcc`, `make`, `numpy`, `sympy`):
+
+```bash
+pip install numpy sympy
+python3 -m src.generate_vectors                       # regenerate vectors
+( cd vectors && shasum -a 256 -c SHA256SUMS )         # confirm byte-identical
+( cd drivers && make )                                # build C verifier (~2s)
+drivers/verify_kat vectors/kat/*.rsp                  # all PASS (full 318 records)
+python3 drivers/verify_kat.py vectors/kat/mbs_hawk*.rsp vectors/kat/m_s_ueo_hawk*.rsp
+python3 drivers/verify_kat.py --max-records 5 vectors/kat/wnr_hawk*.rsp
+```
+
+## Repository layout
+
+```
+hawk-weak-keys/
+├── README.md                       you are here
+├── CLAIMS.md                       precise BUFF claims, definitions, scope
+├── docker/
+│   ├── Dockerfile                  pinned ubuntu:22.04 + gcc + python3 + numpy/sympy
+│   └── reproduce.sh                end-to-end reproduction script
+├── src/
+│   └── generate_vectors.py         deterministic generator (uses official codec.py)
+├── drivers/
+│   ├── verify_kat.c                standalone C verifier (uses vendored hawk_verify_finish)
+│   ├── verify_kat.py               standalone Python verifier (uses vendored hawk-py)
+│   └── Makefile                    builds the C verifier
+├── vectors/
+│   ├── json/                       human-readable test vectors with hashes
+│   ├── kat/                        NIST PQC `.rsp` test vectors (loadable by any HAWK tool)
+│   └── SHA256SUMS                  tamper-evident manifest of every vector file
+└── third_party/
+    ├── README.md                   vendoring provenance, licensing, integrity
+    ├── submission.zip              bit-identical original archive (kept for integrity)
+    └── hawk-sign-submission/       extracted HAWK Round 2 NIST submission (unmodified)
+```
+
+## Provenance
+
+The vendored HAWK Round 2 submission was downloaded from the official URL:
+
+```
+URL:           https://hawk-sign.info/submission.zip
+last-modified: Wed, 21 May 2025 09:11:44 GMT
+content-length: 6111768
+SHA256:        301ebfd625877a9997bad6441bc9d69b01df5f6aba35332caa113f6462a96f86
+```
+
+`third_party/submission.zip` is the bit-identical archive.  Reviewers can
+re-download from the official URL and confirm the SHA256 matches.
+
+The HAWK specification itself is at:
+<https://csrc.nist.gov/csrc/media/Projects/pqc-dig-sig/documents/round-2/spec-files/hawk-spec-round2-web.pdf>
+(HAWK v1.1, dated 2025-02-05).
+
+## Test-vector formats
+
+Both formats describe the same witnesses; pick whichever suits your tooling.
+
+### `vectors/kat/*.rsp` (NIST PQC KAT)
+
+Standard format with `count`, `seed` (placeholder), `mlen`, `msg`, `pk`,
+`sk` (placeholder), `smlen`, `sm` per record, where `sm = msg || sig`
+matches the HAWK NIST API `crypto_sign` convention.  `seed` and `sk` are
+placeholders because malformed keys do not come from honest keygen; only
+`pk`, `msg`, and `sm` are required for verification.
+
+Any HAWK verifier (existing test harnesses, future implementations, AVX2
+optimised builds, etc.) can ingest these files unchanged.
+
+### `vectors/json/*.json` (human-readable)
+
+JSON schema:
+
+```json
+{
+  "claim": "MBS" | "M-S-UEO" | "wNR",
+  "parameter_set": "Hawk-{256,512,1024}",
+  "logn": 8 | 9 | 10,
+  "recipe": { ...deterministic recipe constants... },
+  "shared": { "pk_hex": "...", "sig_hex": "...", "pk_sha256": "...", ... },
+  "records": [ ...per-record `(msg, expected_accept)`... ],
+  "rsp_file": "...corresponding .rsp filename...",
+  "note": "..."
+}
+```
+
+The JSON is a strict superset of the `.rsp` content (it adds SHA-256
+and SHAKE256-32 digests of the encoded `pk` and `sig`, plus ASCII hints
+for human-readable messages).
+
+## Determinism and integrity
+
+Every byte produced by `src/generate_vectors.py` is a pure function of:
+
+- the recipe constants (constant `q00`, constant `q01`, all-zero salt, zero `s1`),
+- the shipped HAWK `Extra/hawk-py/codec.py` (unmodified),
+- ASCII / SHAKE-derived messages with documented preimages.
+
+There is no DRBG, no salt sampling, no randomness in the artifact.  Re-running
+`src/generate_vectors.py` produces byte-identical output across machines.
+
+`vectors/SHA256SUMS` records the SHA-256 of every shipped vector file.  Any
+deviation means either:
+
+1. the vendored `codec.py` changed (which the SHA256 of `submission.zip`
+   would also flag), or
+2. the recipe constants in `src/generate_vectors.py` changed.
+
+In either case, the artifact's `docker/reproduce.sh` would refuse to print
+`ARTIFACT REPRODUCIBLE`.
+
+## What is and is not claimed
+
+See `CLAIMS.md` for the precise statement.  In one sentence: this artifact
+shows that the HAWK Round 2 verifier accepts a class of byte-decodable
+public keys that fall outside the public-key domain implicitly assumed by
+the BUFF analysis of Aulbach-Duzlu-Meyer-Struck-Weishaupl 2024/591.  It
+does **not** falsify HAWK SUF-CMA on honestly generated keys.
+
+## License
+
+The artifact's own files (everything outside `third_party/`) are released
+under the MIT License; see `LICENSE` at the repository root.
+
+The contents of `third_party/hawk-sign-submission/` and
+`third_party/submission.zip` are the unmodified HAWK Round 2 NIST PQC
+submission and remain under their original licenses (see
+`third_party/hawk-sign-submission/hawk-submission/Extra/hawk-py/LICENSE.txt`
+for the Python reference's MIT license).

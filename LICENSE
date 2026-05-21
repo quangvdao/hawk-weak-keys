@@ -1,0 +1,40 @@
+MIT License
+
+Copyright (c) 2026 Quang Dao
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+----
+
+This license applies only to files authored as part of this artifact:
+
+  README.md, CLAIMS.md, LICENSE, .dockerignore, .gitignore,
+  docker/Dockerfile, docker/reproduce.sh,
+  drivers/verify_kat.c, drivers/verify_kat.py, drivers/Makefile,
+  src/generate_vectors.py,
+  third_party/README.md,
+  vectors/SHA256SUMS, vectors/json/*, vectors/kat/*
+
+The contents of `third_party/hawk-sign-submission/` and
+`third_party/submission.zip` are the unmodified HAWK Round 2 NIST PQC
+submission and remain under their original licenses.  See in particular
+`third_party/hawk-sign-submission/hawk-submission/Extra/hawk-py/LICENSE.txt`
+(MIT, "Hawk Project") for the Python reference license, and the
+top-level `third_party/hawk-sign-submission/hawk-submission/README.txt`
+for the C reference distribution terms.

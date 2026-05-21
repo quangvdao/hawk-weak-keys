@@ -1,0 +1,12 @@
+# Don't ship the unextracted upstream zip into the build image; the extracted
+# tree is enough for build/runtime, and the zip is large.
+third_party/submission.zip
+
+# Build outputs
+drivers/verify_kat
+drivers/*.o
+
+# Editor / OS noise
+.DS_Store
+**/__pycache__/
+*.pyc
