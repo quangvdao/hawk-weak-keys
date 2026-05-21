@@ -162,11 +162,23 @@ In either case, the artifact's `docker/reproduce.sh` would refuse to print
 
 ## What is and is not claimed
 
-See `CLAIMS.md` for the precise statement.  In one sentence: this artifact
-shows that the HAWK Round 2 verifier accepts a class of byte-decodable
-public keys that fall outside the public-key domain implicitly assumed by
-the BUFF analysis of Aulbach-Duzlu-Meyer-Struck-Weishaupl 2024/591.  It
-does **not** falsify HAWK SUF-CMA on honestly generated keys.
+See `CLAIMS.md` for the precise statement, including a line-by-line
+account of which steps in the BUFF analysis the witnesses trip.  In one
+sentence: this artifact shows that the HAWK Round 2 verifier accepts
+byte-decodable public keys for which the BUFF analysis of
+Aulbach-Düzlü-Meyer-Struck-Weishäupl 2024/591 §5.1 has at least four
+specific holes, one structural (the factor `(q01/q00)·f − F` in the
+MBS coordinate decomposition can be *exactly zero*, which it is for
+the natural algebraic preimage `(1, 0, 1, 1)` of these keys) and three
+quantitative (no magnitude bound on the proof's "fixed values"; the
+S-CEO θ-ball volume estimate reused for M-S-UEO and wNR is derived for
+honest-scale `(q00, q01)` only; the implicit existential quantifier
+over algebraic preimages is not restricted to honest-norm preimages).
+The witnesses fall *inside* the proof's algebraic domain (each pk has
+a valid NTRU preimage with `f·G − g·F = 1`); they are not "outside the
+proof's assumed key class".  This artifact does **not** falsify HAWK
+SUF-CMA on honestly generated keys, nor S-CEO / S-DEO with honest
+signature reuse.
 
 ## License
 

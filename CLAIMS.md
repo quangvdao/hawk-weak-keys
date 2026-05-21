@@ -26,9 +26,16 @@ in the advantages section.  ADMSW24 marks HAWK as satisfying S-CEO,
 S-DEO, MBS, and wNR.
 
 The artifact's positive claims are about **public-key inputs that the
-HAWK verifier accepts but that fall outside the implicit public-key
-domain of the ADMSW24 analysis**.  The HAWK keygen would reject the
-underlying `(f, g)` for these keys; the verifier does not.
+HAWK verifier accepts and for which specific structural and quantitative
+steps in the BUFF analysis of ADMSW24 §5.1 fail**.  An algebraic NTRU
+preimage `(f, g, F, G)` with `f·G − g·F = 1` and the right `(q00, q01)`
+exists for these keys; HAWK keygen rejects the preimage on its
+norm-floor check, while the verifier imposes no analogous check.  The
+section *Why the MBS / M-S-UEO / wNR proofs break for this pk* below
+walks through the specific lines of ADMSW24 §5.1 that the witnesses
+trip and shows that the gap is not a missing domain restriction but a
+combination of one structural and three quantitative holes in the
+proof itself.
 
 ## Threat model
 
@@ -59,10 +66,13 @@ reference (`hawkverify`).
 This is `vectors/kat/mbs_hawk{256,512,1024}.rsp`.
 
 **Conclusion.**  MBS is falsified over the verifier-accepted public-key
-domain on all three parameter sets.  The MBS proof in ADMSW24 implicitly
-restricts to a narrower public-key-validity domain than the byte-level
-verifier; the artifact exhibits a public key that is valid for `Verify`
-but for which MBS does not hold.
+domain on all three parameter sets.  The witness exhibits a public key
+for which the MBS proof of ADMSW24 §5.1 has structural and quantitative
+holes (see *Why the MBS / M-S-UEO / wNR proofs break for this pk*
+below).  In particular, the factor `(q01/q00)·f − F` in the proof's
+coordinate decomposition of `‖w − w'‖_Q` is *exactly zero* in every
+FFT slot for the natural algebraic preimage `(f, g, F, G) = (1, 0, 1, 1)`
+of this pk, and the proof has no case analysis for that vanishing.
 
 ## Claim 2: M-S-UEO counterexample
 
@@ -82,7 +92,14 @@ and the same `(m, sig)` accepts under all four under both verifiers.
 This is `vectors/kat/m_s_ueo_hawk{256,512,1024}.rsp`.
 
 **Conclusion.**  M-S-UEO is falsified over the verifier-accepted
-public-key domain on all three parameter sets.
+public-key domain on all three parameter sets.  The four pk's
+correspond to algebraic preimages `(f, g, F, G) = (1, 0, a, 1)` for
+`a ∈ {0, 1, 2, 16}`; they share the same `f, g, G` and differ only in
+`F`, so the structural degeneracy `(q01/q00)·f − F = a·1 − a = 0` of
+the MBS coordinate decomposition holds for every member of the family.
+The S-CEO θ-ball-volume bound that ADMSW24 reuses for M-S-UEO inherits
+the same scale gap (see *Why the MBS / M-S-UEO / wNR proofs break for
+this pk* below).
 
 ## Claim 3: wNR shape
 
@@ -108,10 +125,162 @@ high-entropy challenge message.  This is the attack shape against wNR
 when the adversary is allowed to choose `pk` adversarially: it commits
 to a fixed `(pk, sig)` that ignores the given honest signature and
 trivially opens to whatever the unknown challenge message turns out to
-be.  The artifact exhibits the message-independence directly; turning
-this shape into a formal wNR adversary against ADMSW24's exact game
-reduces to checking that the entropy and oracle-access conditions of
-that game are satisfied by the construction.
+be.  ADMSW24 §5.1's wNR analysis reduces directly to the S-CEO θ-ball
+volume estimate ("amounts to the same probability as computed in the
+proof of S-CEO"); that estimate is computed for honest-scale
+`(q00, q01)` and is wildly wrong for our malformed pk, where the
+verifier's threshold ball encompasses essentially the entire signature
+space (see *Why the MBS / M-S-UEO / wNR proofs break for this pk*
+below).  Turning this attack shape into a formal wNR adversary against
+ADMSW24's exact game reduces to checking that the entropy and
+oracle-access conditions of that game are satisfied by the
+construction; the message-independence shown empirically here is the
+core ingredient.
+
+## Why the MBS / M-S-UEO / wNR proofs break for this pk
+
+The witnesses do not exhibit a public key outside the proof's *domain*:
+the algebraic preimage `(f, g, F, G) = (1, 0, 1, 1)` is a perfectly
+valid HAWK secret-key matrix `B = ((f, F),(g, G))` with
+`Q = B^* B = ((1, 1),(1, 2))` and `f·G − g·F = 1`.  What the witnesses
+exhibit is that the BUFF analysis of HAWK in ADMSW24 §5.1 has specific
+structural and quantitative steps that fail for this `B`.  This
+section walks through them.
+
+### Setup, restated from ADMSW24 §5.1
+
+Verification accepts `(pk, msg, sig = (salt, s_1))` iff `‖w‖_Q ≤ θ`,
+with `w = (w_0, w_1) = (h_0 − 2 s_0, h_1 − 2 s_1)`,
+`(h_0, h_1) = H(M ‖ salt)`, and `s_0` reconstructed by HAWK
+Algorithm 18 from `(q00, q01, w_1, h_0)`.  ADMSW24 §5.1 uses the
+existence of an NTRU basis `B = ((f, F),(g, G))` with `Q = B^* B` and
+`f·G − g·F = 1`; this basis need not be the honest signer's, only an
+algebraic preimage of `(q00, q01)`.
+
+### Flaw 1 (structural): the factor `(q01/q00)·f − F` can be zero
+
+For two messages `msg ≠ msg'` accepting under the same `(pk, sig)`,
+ADMSW24 (page 22) writes
+
+```
+‖w − w'‖_Q = ‖B(w − w')‖
+           = ‖( (h_1 − h_1')·((q01/q00)·f − F) + f·(ε + ε'),
+                (h_1 − h_1')·((q01/q00)·g − G) + g·(ε + ε') )‖,
+```
+
+with `ε, ε' ∈ [−½, ½)` arising from
+`s_0 = h_0/2 − (q01/q00)(h_1/2 − s_1) + ε`, and concludes "the
+probability for this to be smaller than `2θ` is negligible as
+`(q01/q00)·f − F` and `(q01/q00)·g − G` are fixed values, while
+`h_1 − h_1'` and `ε + ε'` are random."
+
+For the algebraic preimage `(f, g, F, G) = (1, 0, 1, 1)` of our
+witness, evaluated in every FFT slot:
+
+```
+(q01/q00)·f − F = 1·1 − 1 = 0
+(q01/q00)·g − G = 1·0 − 1 = −1
+f               = 1
+g               = 0
+```
+
+The first coordinate of `B(w − w')` then collapses to
+`f·(ε + ε') = ε + ε'`, of size `O(1)` *regardless of* `h_1 − h_1'`,
+and the second coordinate collapses to `−(h_1 − h_1')`, with no
+honest-norm-of-`g` factor multiplying it.  The proof's argument
+requires the random `h_1 − h_1'` contribution to dominate; for this
+preimage, it doesn't.  ADMSW24 §5.1 has no case analysis for
+`(q01/q00)·f − F = 0`, even though this happens for *any* algebraic
+preimage with `f·q01 = F·q00` (a subspace, not a measure-zero point).
+
+### Flaw 2 (quantitative): the "fixed values" need to be honest-scale
+
+Even where the "fixed values" are nonzero (the `−1` in the second
+coordinate above), the proof's "negligible probability" conclusion
+silently requires `(q01/q00)·f − F`, `(q01/q00)·g − G`, `f`, and `g`
+to have magnitudes `Θ(σ_kg √n)`.  Honest keygen rejects preimages
+with `‖f‖² + ‖g‖²` below a parameter-dependent floor of order
+`2 σ_kg² n` (roughly `1.5 × 10³` for HAWK-512), so honest pk's only
+ever expose preimages at this scale.  The verifier imposes no such
+floor: it accepts `(q00, q01) = (1, 1)`, for which `(1, 0, 1, 1)` has
+`‖f‖² + ‖g‖² = 1`, three orders of magnitude below the keygen floor.
+At this scale the random-`h_1 − h_1'` term contributes at most
+`‖h_1 − h_1'‖² ≈ n/2`, well below the threshold radius `(2θ)² ≈ 64 n`
+for HAWK-512.
+
+Concretely, the verifier's Q-form for our pk simplifies (via
+`q11 = (1 + |q01|²)/q00`, the implicit `det Q = 1` in HAWK
+Algorithm 19) to
+
+```
+‖w‖²_Q = q00·|w_0 + (q01/q00)·w_1|² + (1/q00)·|w_1|²
+       = |w_0 + w_1|² + |w_1|²,
+```
+
+with `|w_0 + w_1|_∞ ≤ 1` per coefficient (HAWK Algorithm 18's
+rounding has slack) and `|w_1|² = ‖h_1‖² ≈ n/2` from our `s_1 = 0`.
+Total `(1/n)·‖w‖²_Q ≈ 1`, well below the parameter-set threshold
+`θ² ≈ 16` for HAWK-512.  The form is structurally identical for
+HAWK-256 and HAWK-1024 with comparable margin, which matches the
+empirical 100 / 100 acceptance for wNR on every parameter set.
+
+### Flaw 3 (counting): the S-CEO / wNR θ-ball estimate is honest-only
+
+§5.1's S-CEO analysis estimates "for the parameters in HAWK, a θ-ball
+is of size `2^(31·3)`, while the space of possible values is
+`2^(31·256)`, so a random value will be in a θ-ball with probability
+about `2^(−31·253)`."  This volume is the count of integer points in
+the ball `{w : ‖w‖_Q ≤ θ}` *for honest-distributed `(q00, q01)`*.
+In our malformed Q-form (with `q00 = 1` constant, while honest
+`q00[0] = ‖f‖² + ‖g‖²` is bounded below by the keygen norm floor of
+order `2 σ_kg² n`, roughly `1.5 × 10³` for HAWK-512, three orders of
+magnitude above ours), the same Q-ball encompasses essentially the
+entire signature space.  ADMSW24 §5.1's
+wNR analysis reuses this count verbatim ("amounts to the same
+probability as computed in the proof of S-CEO") and inherits the same
+gap; the M-S-UEO bound in the same section relies on the same
+volumetric argument.
+
+The 100 / 100 wNR acceptance across all three parameter sets, with
+messages drawn from a SHAKE-keyed PRF whose output is unrelated to
+the malformed pk, is the direct experimental witness for this flaw.
+
+### Flaw 4 (quantification): implicit existential over `(f, g, F, G)`
+
+ADMSW24's argument is parametrised by *some* `B = ((f, F),(g, G))`
+with `Q = B^* B` and `f·G − g·F = 1`; given `(q00, q01)`, multiple
+`B` satisfy this.  For honest pk the keygen norm floor pins all
+preimages to honest scale, so picking any honest `B` for the proof is
+harmless.  For our malformed family `(q00, q01) = (1, a)` the
+verifier accepts preimages of arbitrarily small norm, including the
+explicit `(1, 0, a, 1)` for which the structural degeneracy of
+Flaw 1 holds.  The proof never quantifies over preimages and silently
+substitutes the honest one.
+
+### Smallest classification of the gaps
+
+1. *(Structural.)*  No case analysis when `(q01/q00)·f − F = 0` (or
+   `(q01/q00)·g − G = 0`) in the MBS / `‖w − w'‖_Q` coordinate
+   decomposition.
+2. *(Quantitative.)*  No quantitative lower bound on the magnitudes
+   of `(q01/q00)·f − F`, `(q01/q00)·g − G`, `f`, `g` relative to the
+   threshold radius `θ`.
+3. *(Counting.)*  Honest-distribution θ-ball volume estimate reused
+   verbatim for S-CEO, M-S-UEO, and wNR without re-deriving on the
+   verifier-accepted domain.
+4. *(Quantification.)*  Implicit existential quantifier over
+   algebraic preimages `(f, g, F, G)` not restricted to honest-norm
+   preimages.
+
+Closing these gaps requires either (a) tightening the verifier with a
+public-key validity predicate that excludes malformed `(q00, q01)`
+(candidate: a spectral lower bound `min_u q00_u ≥ μ` together with a
+bound on `K(pub) = max_u |q01_u| / sqrt(q00_u)`, both checkable in
+O(n log n) at verify time), or (b) tightening the proof
+(re-quantifying over all algebraic preimages and re-deriving the
+θ-ball count over the verifier-accepted domain).  The companion
+conceptual work targets path (a); this artifact is silent on which
+patch is preferred.
 
 ## What is NOT claimed
 
@@ -130,13 +299,19 @@ The artifact does **not** claim, and the experiments do **not** support:
    and produced no hits.  This artifact ships the positive MBS /
    M-S-UEO / wNR results only.
 
-3. **No NTRU basis exists for the malformed key.**  For the constant
-   family `q00 = 1, q01 = a` there is a formal NTRU basis
-   `(f, g, F, G) = (1, 0, a, 1)` with `f·G - g·F = 1` and the right
-   `q00, q01`.  The HAWK keygen rejects this `(f, g)` because
-   `‖f‖² + ‖g‖²` is far below the keygen minimum norm check.  So the
-   issue is not "no algebraic preimage exists"; it is "no honest-keygen
-   preimage exists, but the verifier accepts anyway".
+3. **The malformed pk has no algebraic NTRU preimage.**  False.  For
+   the constant family `q00 = 1, q01 = a` there is the explicit
+   preimage `(f, g, F, G) = (1, 0, a, 1)` with `f·G − g·F = 1` and
+   matching `(q00, q01, q11) = (1, a, 1 + a²)` (the implicit `q11`
+   under HAWK Algorithm 19).  HAWK keygen rejects this `(f, g)`
+   because `‖f‖² + ‖g‖² = 1` is far below the parameter-dependent
+   keygen minimum-norm floor; the verifier never imposes such a
+   check.  The MBS / M-S-UEO / wNR proofs in ADMSW24 §5.1 use this
+   preimage in their coordinate decomposition, and the *structural*
+   degeneracy `(q01/q00)·f − F = 0` is what trips the MBS proof; it
+   is not the absence of an algebraic preimage that drives the
+   counterexample.  See *Why the MBS / M-S-UEO / wNR proofs break
+   for this pk* above.
 
 4. **Acceptance is sensitive to the encoder.**  The shipped `pk` and
    `sig` bytes round-trip cleanly through the official `decode_public`
@@ -149,8 +324,10 @@ This artifact is suitable for accompanying a paper that:
 
 - claims byte-level falsification of MBS, M-S-UEO, and wNR over the
   HAWK verifier's accepted public-key domain on all three parameter sets,
-- frames the result as a gap between the verifier-accepted public-key
-  domain and the public-key domain of the BUFF analysis in ADMSW24,
+- frames the result as specific structural and quantitative gaps in
+  the BUFF analysis of HAWK in ADMSW24 §5.1, exposed by the
+  verifier-accepted public-key domain (see *Why the MBS / M-S-UEO /
+  wNR proofs break for this pk* for the line-by-line account),
 - proposes (separately, not in this artifact) a public-key validity
   predicate that excludes this family while accepting honestly generated
   keys with overwhelming probability.
