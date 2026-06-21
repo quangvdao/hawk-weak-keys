@@ -6,7 +6,8 @@
 #   1. Re-derive every test vector from the deterministic recipe.
 #   2. Confirm regenerated vectors are byte-identical to the shipped manifest.
 #   3. Build and run the C reference verifier on every .rsp file.
-#   4. Run the Python reference verifier on every .rsp file.
+#   4. Run the Python reference verifier on all MBS/M-S-UEO records and a
+#      sampled subset of wNR records (set HAWK_WNR_FULL=1 for all 300).
 #   5. Print ARTIFACT REPRODUCIBLE iff all four steps succeeded.
 
 set -euo pipefail

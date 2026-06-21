@@ -1,8 +1,7 @@
 # HAWK Weak-Key Counterexamples: Reproducibility Artifact
 
-This artifact provides byte-level test vectors that falsify three BUFF
-properties of HAWK Round 2 over the verifier-accepted, byte-decodable
-public-key domain.  Each vector is verified by **two independent
+This artifact provides byte-decodable test vectors that falsify three BUFF
+properties of HAWK Round 2 over the verifier-accepted public-key domain.  Each vector is verified by **two independent
 implementations**: the unmodified vendored HAWK Round 2 C reference and
 the unmodified vendored HAWK Round 2 Python reference (`hawk-py`),
 both shipped by the HAWK authors at <https://hawk-sign.info/submission.zip>.
@@ -14,12 +13,16 @@ implementations.  Encoding is performed by the HAWK authors' own
 
 This artifact is the companion to the paper
 *Weak Keys Break the BUFF Security of HAWK*, which contains the proof
-analysis, the verifier-side `Q00NormFloor` fix, and the positive
-theorems.  This repository ships only the empirical witnesses against
+analysis, candidate verifier-side checks (`KeyNormCheck`, `KeyShapeCheck`),
+and the positive theorems.
+The paper's §Proof Status and Open Problems states what is proved and what
+remains open, including the gap between real-valued theorems and the
+shipped fixed-point verifier.
+This repository ships only the empirical witnesses against
 the unmodified verifier; see `CLAIMS.md` for how the witnesses map to
 the paper's claims.
 
-## Claims (one-line summary)
+## Summary
 
 For every `(parameter set, claim)` pair, every record in the corresponding
 `vectors/kat/*.rsp` file accepts under both verifiers:
@@ -33,7 +36,7 @@ For every `(parameter set, claim)` pair, every record in the corresponding
 See `CLAIMS.md` for the precise BUFF-game framing, what is and is not broken,
 and the literature anchors.
 
-## Reproduction (single command)
+## Reproduction
 
 The recommended path is the pinned Docker image:
 
@@ -114,7 +117,7 @@ The HAWK specification itself is at:
 
 Both formats describe the same witnesses; pick whichever suits your tooling.
 
-### `vectors/kat/*.rsp` (NIST PQC KAT)
+### NIST KAT: `vectors/kat/*.rsp`
 
 Standard format with `count`, `seed` (placeholder), `mlen`, `msg`, `pk`,
 `sk` (placeholder), `smlen`, `sm` per record, where `sm = msg || sig`
@@ -125,7 +128,7 @@ placeholders because malformed keys do not come from honest keygen; only
 Any HAWK verifier (existing test harnesses, future implementations, AVX2
 optimised builds, etc.) can ingest these files unchanged.
 
-### `vectors/json/*.json` (human-readable)
+### JSON: `vectors/json/*.json`
 
 JSON schema:
 

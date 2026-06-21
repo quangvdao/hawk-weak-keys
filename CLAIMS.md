@@ -38,7 +38,7 @@ HAWK verifier accepts and for which specific structural and quantitative
 steps in the BUFF analysis of ADMSW24 §5.1 fail**.  An algebraic NTRU
 preimage `(f, g, F, G)` with `f·G − g·F = 1` and the right `(q00, q01)`
 exists for these keys; HAWK keygen rejects the preimage on its
-norm-floor check, while the verifier imposes no analogous check.  The
+minimum-size check, while the verifier imposes no analogous check.  The
 section *Why the HAWK proofs in ADMSW24 §5.1 are unsound for this pk*
 below walks through the specific lines that the witnesses trip and
 shows that the gap is not a missing domain restriction but a
@@ -82,7 +82,7 @@ for which the MBS proof of ADMSW24 §5.1 has structural and quantitative
 holes (see *Why the HAWK proofs in ADMSW24 §5.1 are unsound for this pk*
 below).  In particular, the factor `(q01/q00)·f − F` in the proof's
 coordinate decomposition of `‖w − w'‖_Q` is *exactly zero* in every
-FFT slot for the natural algebraic preimage `(f, g, F, G) = (1, 0, 1, 1)`
+FFT coordinate for the natural algebraic preimage `(f, g, F, G) = (1, 0, 1, 1)`
 of this pk, and the proof has no case analysis for that vanishing.
 
 ## Claim 2: M-S-UEO counterexample
@@ -199,13 +199,12 @@ ADMSW24 (page 22) writes
 ```
 
 with `ε, ε' ∈ [−½, ½)` arising from
-`s_0 = h_0/2 − (q01/q00)(h_1/2 − s_1) + ε`, and concludes "the
-probability for this to be smaller than `2θ` is negligible as
+`s_0 = h_0/2 − (q01/q00)(h_1/2 − s_1) + ε`, and concludes that this falls below `2θ`, twice the verification radius, only with negligible probability, because
 `(q01/q00)·f − F` and `(q01/q00)·g − G` are fixed values, while
 `h_1 − h_1'` and `ε + ε'` are random."
 
 For the algebraic preimage `(f, g, F, G) = (1, 0, 1, 1)` of our
-witness, evaluated in every FFT slot:
+witness, evaluated in every Fourier coordinate:
 
 ```
 (q01/q00)·f − F = 1·1 − 1 = 0
@@ -228,17 +227,18 @@ preimage with `f·q01 = F·q00` (a subspace, not a measure-zero point).
 Even where the "fixed values" are nonzero (the `−1` in the second
 coordinate above), the proof's "negligible probability" conclusion
 silently requires `(q01/q00)·f − F`, `(q01/q00)·g − G`, `f`, and `g`
-to have magnitudes `Θ(σ_kg √n)`.  Honest keygen rejects preimages
-with `‖f‖² + ‖g‖²` below a parameter-dependent floor of order
+to have magnitudes `Θ(σ_kg √n)`, where `σ_kg` is the key-generation
+standard deviation.  Honest keygen rejects preimages
+with `‖f‖² + ‖g‖²` below a parameter-dependent minimum of order
 `2 σ_kg² n` (roughly `1.5 × 10³` for HAWK-512), so honest pk's only
 ever expose preimages at this scale.  The verifier imposes no such
-floor: it accepts `(q00, q01) = (1, 1)`, for which `(1, 0, 1, 1)` has
-`‖f‖² + ‖g‖² = 1`, three orders of magnitude below the keygen floor.
+minimum: it accepts `(q00, q01) = (1, 1)`, for which `(1, 0, 1, 1)` has
+`‖f‖² + ‖g‖² = 1`, three orders of magnitude below keygen's minimum.
 At this scale the random-`h_1 − h_1'` term contributes at most
 `‖h_1 − h_1'‖² ≈ n/2`, well below the threshold radius `(2θ)² ≈ 64 n`
 for HAWK-512.
 
-Concretely, the verifier's Q-form for our pk simplifies (via
+Concretely, the verifier's quadratic norm for our pk simplifies (via
 `q11 = (1 + |q01|²)/q00`, the implicit `det Q = 1` in HAWK
 Algorithm 19) to
 
@@ -261,15 +261,15 @@ is of size `2^(31·3)`, while the space of possible values is
 `2^(31·256)`, so a random value will be in a θ-ball with probability
 about `2^(−31·253)`."  This volume is the count of integer points in
 the ball `{w : ‖w‖_Q ≤ θ}` *for honest-distributed `(q00, q01)`*.
-In our malformed Q-form (with `q00 = 1` constant, while honest
-`q00[0] = ‖f‖² + ‖g‖²` is bounded below by the keygen norm floor of
+In our malformed key (with `q00 = 1` constant, while honest
+`q00[0] = ‖f‖² + ‖g‖²` is bounded below by keygen's minimum of
 order `2 σ_kg² n`, roughly `1.5 × 10³` for HAWK-512, three orders of
 magnitude above ours), the same Q-ball encompasses essentially the
 entire signature space.  ADMSW24 §5.1's
 wNR analysis reuses this count verbatim ("amounts to the same
 probability as computed in the proof of S-CEO") and inherits the same
 gap; the M-S-UEO bound in the same section relies on the same
-volumetric argument.
+volume-counting argument.
 
 The 100 / 100 wNR acceptance across all three parameter sets, with
 messages drawn from a SHAKE-keyed PRF whose output is unrelated to
@@ -279,7 +279,7 @@ the malformed pk, is the direct experimental witness for this flaw.
 
 ADMSW24's argument is parametrised by *some* `B = ((f, F),(g, G))`
 with `Q = B^* B` and `f·G − g·F = 1`; given `(q00, q01)`, multiple
-`B` satisfy this.  For honest pk the keygen norm floor pins all
+`B` satisfy this.  For honest pk keygen's minimum pins all
 preimages to honest scale, so picking any honest `B` for the proof is
 harmless.  For our malformed family `(q00, q01) = (1, a)` the
 verifier accepts preimages of arbitrarily small norm, including the
@@ -303,43 +303,44 @@ substitutes the honest one.
    preimages.
 
 Closing these gaps requires either (a) tightening the verifier with a
-public-key validity predicate that excludes malformed `(q00, q01)`,
+candidate public-key validity check that excludes malformed `(q00, q01)`,
 or (b) tightening the proof (re-quantifying over all algebraic
 preimages and re-deriving the θ-ball count over the verifier-accepted
-domain).  This artifact is silent on which patch is preferred; it
+domain).  This artifact is silent on which check is preferred; it
 only documents that without one of them the BUFF proofs are unsound
 for the verifier as specified.
 
-A natural first guess is a per-FFT-slot spectral lower bound
+A natural first guess is a per-Fourier-coordinate lower bound
 `min_u q00_u ≥ μ`, possibly combined with a bound on
 `K(pub) = max_u |q01_u| / sqrt(q00_u)`, both checkable in `O(n log n)`
 at verify time.  Empirical sweeps over the constant-`q00` adversarial
 family rule this out: the constant family `q00 = K, q01 = a` for `K`
-intermediate (e.g. `K = 8` for HAWK-256) passes any honest-calibrated
-spectral lower bound `min_u q00_u ≥ μ` and *still* breaks MBS / wNR.
+intermediate (e.g. `K = 8` for HAWK-256) passes any honestly calibrated
+per-coordinate lower bound `min_u q00_u ≥ μ` and *still* breaks MBS / wNR.
 
 The load-bearing public-key validity quantity is instead the
-*time-domain* constant `q00[0] = ‖f‖² + ‖g‖²`, which equals the *mean*
-of the FFT slots and is exactly the quantity HAWK keygen floors:
-honest keygen rejection-samples `(f, g)` until `‖f‖² + ‖g‖² ≥ ℓ_low`
+constant term `q00[0] = ‖f‖² + ‖g‖²`, which equals the *average*
+of the Fourier coordinates and is exactly the quantity HAWK keygen enforces:
+honest keygen resamples `(f, g)` until `‖f‖² + ‖g‖² ≥ ℓ_low`
 with `ℓ_low = 556 / 2080 / 7981` for HAWK-256/512/1024, while the
 constant-`q00` MBS attack only survives for `K` up to about
 `23 / 13 / 13` (empirically) and is provably defeated once
 `K > 32 σ_verify² ≈ 34.7 / 65.0 / 79.0`.  Setting the verifier-side
-floor `Q_min = ℓ_low = 556 / 2080 / 7981` therefore sits an order of
-magnitude above the attack boundary and exactly at the keygen floor,
+threshold `Q_min = ℓ_low = 556 / 2080 / 7981` therefore sits an order of
+magnitude above the attack boundary and exactly at keygen's minimum,
 so every honest key passes by construction (with probability 1, not
 merely overwhelmingly) and the entire constant-`q00` family is
 rejected.  This single `i32` comparison `q00[0] ≥ Q_min` is the
-`Q00NormFloor` predicate.
+`KeyNormCheck` predicate.
 
-The verifier-side patch and the corresponding theorems (exact honest
-acceptance, the constant-`q00` MBS closure, and the stronger ideal-Q
-spectral results) are stated and proved in the companion paper,
-*Weak Keys Break the BUFF Security of HAWK*.  This artifact restricts
-itself to empirical witnesses against the unmodified verifier.
+The verifier-side candidate checks and the corresponding theorems (exact honest
+acceptance, the constant-`q00` MBS closure, and the stronger shape-based
+results) are stated and proved in the companion paper,
+*Weak Keys Break the BUFF Security of HAWK*.
+This artifact restricts itself to empirical witnesses against the unmodified
+verifier.
 
-## Forward pointer: S-CEO / S-DEO and the Q00NormFloor patch
+## Forward pointer: S-CEO / S-DEO and the KeyNormCheck candidate
 
 **S-CEO and S-DEO games (not refuted by this artifact).**
 This artifact ships no S-CEO or S-DEO counterexamples for the
@@ -353,27 +354,42 @@ constant-family malformed keys cannot absorb.  That argument is a
 sketch; its large branch rests on an unproven random-oracle support
 claim.
 
-**Q00NormFloor patch (candidate verifier-side fix).**
+**KeyNormCheck candidate (verifier-side check).**
 Empirical sweeps over the constant family, sparse non-constant
 perturbations, and 75600 dense non-constant `q00` shapes find **zero**
 MBS or wNR accepts once `q00[0] ≥ Q_min` at the recommended threshold
 `Q_min = ℓ_low = 556 / 2080 / 7981`.  Honest HAWK keygen passes
-`Q00NormFloor` with probability 1 by construction, because keygen's
-own norm floor `‖f‖² + ‖g‖² ≥ ℓ_low` (the `l2low` constant in
+`KeyNormCheck` with probability 1 by construction, because keygen's
+own minimum `‖f‖² + ‖g‖² ≥ ℓ_low` (the `l2low` constant in
 `ng_hawk.c`) is the same quantity as `q00[0]`.  Implementation: one
 `i32` comparison after `decode_public`.
 
-An earlier draft used a per-FFT-slot lower bound `min_u q00_u ≥ μ_min`;
+An earlier draft used a per-Fourier-coordinate lower bound `min_u q00_u ≥ μ_min`;
 constant-`q00` adversaries (`K = 8` on HAWK-256) refute that predicate.
 The load-bearing quantity is the time-domain constant `q00[0]`.
 
+**KeyShapeCheck candidate (stronger shape-based check).**
+The companion paper also proposes `KeyShapeCheck`, which keeps the
+`KeyNormCheck` average-coordinate floor and adds bounds on the
+effective spread and peak-to-average ratio of the Fourier coordinates.
+Under it the paper proves anti-concentration for arbitrary keys when
+the norm is evaluated over the reals; honest keys are supported by an
+idealized Gaussian model and calibration, but not yet by an exact
+key-generation theorem.
+
 Proof status, in the companion paper: honest acceptance under
-`Q00NormFloor` is an exact theorem; the constant-`q00` MBS closure is
-a complete Q-form theorem; a per-slot ideal-Q spectral floor and a
-shifted-Rademacher / Hanson-Wright bound are complete in the idealized
-Q-form model.  The remaining open problem is plain `Q00NormFloor` for
-*non-constant* `q00`, which reduces to a negacyclic tube-counting
-question; the paper states it explicitly.
+`KeyNormCheck` is an exact theorem; the constant-`q00` MBS closure is
+a complete theorem when the norm is evaluated over the reals; a
+per-coordinate floor theorem and a Hanson-Wright bound under
+`KeyShapeCheck` are complete in the same real-valued model.
+Two gaps remain before a guarantee about the shipped verifier:
+certifying that the two-prime `PolyQnorm` computation matches the
+intended quadratic form, and proving that honest keys pass
+`KeyShapeCheck`.
+The remaining open problem is plain `KeyNormCheck` for
+*non-constant* `q00`, which the paper reduces to a counting question
+over sign patterns in the negacyclic ring; the paper states it
+explicitly.
 
 ## Cascade into Düzlü, Struck 2024/1669
 
@@ -433,7 +449,7 @@ The artifact does **not** claim, and the experiments do **not** support:
    matching `(q00, q01, q11) = (1, a, 1 + a²)` (the implicit `q11`
    under HAWK Algorithm 19).  HAWK keygen rejects this `(f, g)`
    because `‖f‖² + ‖g‖² = 1` is far below the parameter-dependent
-   keygen minimum-norm floor; the verifier never imposes such a
+   keygen minimum; the verifier never imposes such a
    check.  The MBS / M-S-UEO / wNR proofs in ADMSW24 §5.1 use this
    preimage in their coordinate decomposition, and the *structural*
    degeneracy `(q01/q00)·f − F = 0` is what trips the MBS proof; it
@@ -450,17 +466,17 @@ The artifact does **not** claim, and the experiments do **not** support:
 
 This artifact is suitable for accompanying a paper that:
 
-- claims byte-level falsification of MBS, M-S-UEO, and wNR over the
-  HAWK verifier's accepted public-key domain on all three parameter sets,
+- claims falsification of MBS, M-S-UEO, and wNR over the
+  HAWK verifier's accepted, byte-decodable public-key domain on all three parameter sets,
 - frames the result as specific structural and quantitative gaps in
   the BUFF analysis of HAWK in ADMSW24 §5.1, exposed by the
   verifier-accepted public-key domain (see *Why the HAWK proofs in
   ADMSW24 §5.1 are unsound for this pk* for the line-by-line account),
-- proposes (separately, not in this artifact) a public-key validity
-  predicate that excludes this family while accepting every honestly
-  generated key (the `Q00NormFloor` check `q00[0] ≥ ℓ_low` accepts
-  honest keys with probability exactly 1, since `ℓ_low` is keygen's
-  own norm floor).
+- proposes (separately, not in this artifact) candidate public-key
+  validity checks that exclude this family while accepting every honestly
+  generated key (`KeyNormCheck`, and optionally `KeyShapeCheck`; the
+  `q00[0] ≥ ℓ_low` clause of `KeyNormCheck` accepts honest keys with
+  probability exactly 1, since `ℓ_low` is keygen's own minimum).
 
 It is **not** suitable as backing for SUF-CMA, EUF-CMA, S-CEO, or S-DEO
 claims.
