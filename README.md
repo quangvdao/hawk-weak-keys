@@ -12,6 +12,13 @@ all verification is performed by the HAWK authors' own published
 implementations.  Encoding is performed by the HAWK authors' own
 `Extra/hawk-py/codec.py` only.
 
+This artifact is the companion to the paper
+*Weak Keys Break the BUFF Security of HAWK*, which contains the proof
+analysis, the verifier-side `Q00NormFloor` fix, and the positive
+theorems.  This repository ships only the empirical witnesses against
+the unmodified verifier; see `CLAIMS.md` for how the witnesses map to
+the paper's claims.
+
 ## Claims (one-line summary)
 
 For every `(parameter set, claim)` pair, every record in the corresponding

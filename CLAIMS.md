@@ -303,15 +303,77 @@ substitutes the honest one.
    preimages.
 
 Closing these gaps requires either (a) tightening the verifier with a
-public-key validity predicate that excludes malformed `(q00, q01)`
-(candidate: a spectral lower bound `min_u q00_u ≥ μ` together with a
-bound on `K(pub) = max_u |q01_u| / sqrt(q00_u)`, both checkable in
-O(n log n) at verify time), or (b) tightening the proof
-(re-quantifying over all algebraic preimages and re-deriving the
-θ-ball count over the verifier-accepted domain).  This artifact is
-silent on which patch is preferred; it only documents that without
-one of them the BUFF proofs are unsound for the verifier as
-specified.
+public-key validity predicate that excludes malformed `(q00, q01)`,
+or (b) tightening the proof (re-quantifying over all algebraic
+preimages and re-deriving the θ-ball count over the verifier-accepted
+domain).  This artifact is silent on which patch is preferred; it
+only documents that without one of them the BUFF proofs are unsound
+for the verifier as specified.
+
+A natural first guess is a per-FFT-slot spectral lower bound
+`min_u q00_u ≥ μ`, possibly combined with a bound on
+`K(pub) = max_u |q01_u| / sqrt(q00_u)`, both checkable in `O(n log n)`
+at verify time.  Empirical sweeps over the constant-`q00` adversarial
+family rule this out: the constant family `q00 = K, q01 = a` for `K`
+intermediate (e.g. `K = 8` for HAWK-256) passes any honest-calibrated
+spectral lower bound `min_u q00_u ≥ μ` and *still* breaks MBS / wNR.
+
+The load-bearing public-key validity quantity is instead the
+*time-domain* constant `q00[0] = ‖f‖² + ‖g‖²`, which equals the *mean*
+of the FFT slots and is exactly the quantity HAWK keygen floors:
+honest keygen rejection-samples `(f, g)` until `‖f‖² + ‖g‖² ≥ ℓ_low`
+with `ℓ_low = 556 / 2080 / 7981` for HAWK-256/512/1024, while the
+constant-`q00` MBS attack only survives for `K` up to about
+`23 / 13 / 13` (empirically) and is provably defeated once
+`K > 32 σ_verify² ≈ 34.7 / 65.0 / 79.0`.  Setting the verifier-side
+floor `Q_min = ℓ_low = 556 / 2080 / 7981` therefore sits an order of
+magnitude above the attack boundary and exactly at the keygen floor,
+so every honest key passes by construction (with probability 1, not
+merely overwhelmingly) and the entire constant-`q00` family is
+rejected.  This single `i32` comparison `q00[0] ≥ Q_min` is the
+`Q00NormFloor` predicate.
+
+The verifier-side patch and the corresponding theorems (exact honest
+acceptance, the constant-`q00` MBS closure, and the stronger ideal-Q
+spectral results) are stated and proved in the companion paper,
+*Weak Keys Break the BUFF Security of HAWK*.  This artifact restricts
+itself to empirical witnesses against the unmodified verifier.
+
+## Forward pointer: S-CEO / S-DEO and the Q00NormFloor patch
+
+**S-CEO and S-DEO games (not refuted by this artifact).**
+This artifact ships no S-CEO or S-DEO counterexamples for the
+`(q00, q01) = (1, a)` family, and extended malformed-key search finds
+none.  The ADMSW24 §5.1 *proofs* of S-CEO and S-DEO remain unsound on
+the verifier-accepted domain (Flaws 3 and 4), but a repaired
+two-branch argument (sketched in the companion paper, splitting on
+`max_u q00_u`) suggests the *games* are not broken by the constant
+malformed family: an honest signature forces `‖w_1‖² = Θ(n)`, which
+constant-family malformed keys cannot absorb.  That argument is a
+sketch; its large branch rests on an unproven random-oracle support
+claim.
+
+**Q00NormFloor patch (candidate verifier-side fix).**
+Empirical sweeps over the constant family, sparse non-constant
+perturbations, and 75600 dense non-constant `q00` shapes find **zero**
+MBS or wNR accepts once `q00[0] ≥ Q_min` at the recommended threshold
+`Q_min = ℓ_low = 556 / 2080 / 7981`.  Honest HAWK keygen passes
+`Q00NormFloor` with probability 1 by construction, because keygen's
+own norm floor `‖f‖² + ‖g‖² ≥ ℓ_low` (the `l2low` constant in
+`ng_hawk.c`) is the same quantity as `q00[0]`.  Implementation: one
+`i32` comparison after `decode_public`.
+
+An earlier draft used a per-FFT-slot lower bound `min_u q00_u ≥ μ_min`;
+constant-`q00` adversaries (`K = 8` on HAWK-256) refute that predicate.
+The load-bearing quantity is the time-domain constant `q00[0]`.
+
+Proof status, in the companion paper: honest acceptance under
+`Q00NormFloor` is an exact theorem; the constant-`q00` MBS closure is
+a complete Q-form theorem; a per-slot ideal-Q spectral floor and a
+shifted-Rademacher / Hanson-Wright bound are complete in the idealized
+Q-form model.  The remaining open problem is plain `Q00NormFloor` for
+*non-constant* `q00`, which reduces to a negacyclic tube-counting
+question; the paper states it explicitly.
 
 ## Cascade into Düzlü, Struck 2024/1669
 
@@ -395,8 +457,10 @@ This artifact is suitable for accompanying a paper that:
   verifier-accepted public-key domain (see *Why the HAWK proofs in
   ADMSW24 §5.1 are unsound for this pk* for the line-by-line account),
 - proposes (separately, not in this artifact) a public-key validity
-  predicate that excludes this family while accepting honestly generated
-  keys with overwhelming probability.
+  predicate that excludes this family while accepting every honestly
+  generated key (the `Q00NormFloor` check `q00[0] ≥ ℓ_low` accepts
+  honest keys with probability exactly 1, since `ℓ_low` is keygen's
+  own norm floor).
 
 It is **not** suitable as backing for SUF-CMA, EUF-CMA, S-CEO, or S-DEO
 claims.
