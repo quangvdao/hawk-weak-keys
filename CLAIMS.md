@@ -333,63 +333,83 @@ merely overwhelmingly) and the entire constant-`q00` family is
 rejected.  This single `i32` comparison `q00[0] ≥ Q_min` is the
 `KeyNormCheck` predicate.
 
-The verifier-side candidate checks and the corresponding theorems (exact honest
-acceptance, the constant-`q00` MBS closure, and the stronger shape-based
-results) are stated and proved in the companion paper,
-*Weak Keys Break the BUFF Security of HAWK*.
+The companion paper's positive results are: exact honest acceptance under
+`KeyNormCheck`; constant-`q00` MBS closure under that floor (real-valued
+norm); and a stronger per-coordinate spectral-floor theorem that honest
+keys typically fail.  Non-constant uneven keys under plain
+`KeyNormCheck`, and bit-exact `PolyQnorm` soundness, remain open.
 This artifact restricts itself to empirical witnesses against the unmodified
 verifier.
 
-## Forward pointer: S-CEO / S-DEO and the KeyNormCheck candidate
+## Companion paper: bounds, proof status, and open problems
 
-**S-CEO and S-DEO games (not refuted by this artifact).**
+This artifact documents counterexamples against the **unmodified** HAWK
+verifier.  The companion paper records what HAWK **key generation** already
+enforces and what would follow if verification applied the same bounds.
+It makes **no claim** that doing so fully restores BUFF security.
+
+### S-CEO and S-DEO (games not refuted here)
+
 This artifact ships no S-CEO or S-DEO counterexamples for the
 `(q00, q01) = (1, a)` family, and extended malformed-key search finds
 none.  The ADMSW24 §5.1 *proofs* of S-CEO and S-DEO remain unsound on
-the verifier-accepted domain (Flaws 3 and 4), but a repaired
-two-branch argument (sketched in the companion paper, splitting on
-`max_u q00_u`) suggests the *games* are not broken by the constant
-malformed family: an honest signature forces `‖w_1‖² = Θ(n)`, which
-constant-family malformed keys cannot absorb.  That argument is a
-sketch; its large branch rests on an unproven random-oracle support
-claim.
+the verifier-accepted domain (Flaws 3 and 4).  A repaired two-branch
+argument in the companion paper (splitting on `max_u q00_u`) suggests
+the *games* may survive this family when the adversary must reuse an
+honest signature; that argument is still a sketch.
 
-**KeyNormCheck candidate (verifier-side check).**
+### KeyNormCheck (norm floor matching key generation)
+
 Empirical sweeps over the constant family, sparse non-constant
 perturbations, and 75600 dense non-constant `q00` shapes find **zero**
-MBS or wNR accepts once `q00[0] ≥ Q_min` at the recommended threshold
-`Q_min = ℓ_low = 556 / 2080 / 7981`.  Honest HAWK keygen passes
-`KeyNormCheck` with probability 1 by construction, because keygen's
-own minimum `‖f‖² + ‖g‖² ≥ ℓ_low` (the `l2low` constant in
-`ng_hawk.c`) is the same quantity as `q00[0]`.  Implementation: one
-`i32` comparison after `decode_public`.
+MBS or wNR accepts once `q00[0] ≥ Q_min` at
+`Q_min = ℓ_low = 556 / 2080 / 7981`.
+Honest HAWK keygen passes `KeyNormCheck` with probability 1, because
+keygen's minimum `‖f‖² + ‖g‖² ≥ ℓ_low` equals `q00[0]`.
+Implementation cost: one signed comparison after `decode_public`.
 
 An earlier draft used a per-Fourier-coordinate lower bound `min_u q00_u ≥ μ_min`;
 constant-`q00` adversaries (`K = 8` on HAWK-256) refute that predicate.
 The load-bearing quantity is the time-domain constant `q00[0]`.
 
-**KeyShapeCheck candidate (stronger shape-based check).**
-The companion paper also proposes `KeyShapeCheck`, which keeps the
-`KeyNormCheck` average-coordinate floor and adds bounds on the
-effective spread and peak-to-average ratio of the Fourier coordinates.
-Under it the paper proves anti-concentration for arbitrary keys when
-the norm is evaluated over the reals; honest keys are supported by an
-idealized Gaussian model and calibration, but not yet by an exact
-key-generation theorem.
+In the companion paper this floor is proved to defeat the entire
+**constant-`q00`** MBS attack class (including the witnesses here) when
+the norm is evaluated as the intended real quadratic form.
+Whether plain `KeyNormCheck` implies MBS for **non-constant** uneven
+spectra remains open.
 
-Proof status, in the companion paper: honest acceptance under
-`KeyNormCheck` is an exact theorem; the constant-`q00` MBS closure is
-a complete theorem when the norm is evaluated over the reals; a
-per-coordinate floor theorem and a Hanson-Wright bound under
-`KeyShapeCheck` are complete in the same real-valued model.
-Two gaps remain before a guarantee about the shipped verifier:
-certifying that the two-prime `PolyQnorm` computation matches the
-intended quadratic form, and proving that honest keys pass
-`KeyShapeCheck`.
-The remaining open problem is plain `KeyNormCheck` for
-*non-constant* `q00`, which the paper reduces to a counting question
-over sign patterns in the negacyclic ring; the paper states it
-explicitly.
+### KeyIdentityCheck (algebraic norm identity)
+
+Separately, the paper defines `KeyIdentityCheck`: the decoded key must
+yield an integral self-adjoint `q11 = (1 + q01 q01*)/q00` in range.
+Without it, the reference verifier's two-prime `PolyQnorm` need not
+equal the quadratic form the positive theorems reason about (e.g.
+`q00 = 2, q01 = 0` decodes but has no integer `q11`).
+The artifact does not implement or test this predicate; it is recorded
+in the paper only to state conditional theorems precisely.
+
+### Per-coordinate spectral floor (stronger bound, not deployable as-is)
+
+The paper also proves that requiring **every** Fourier coordinate
+`q00_u ≥ μ > 32 σ_verify²` would block arbitrary keys in the same
+real-valued framework.  Honest HAWK keys often **fail** that stronger
+floor, so it is a mathematical conditional result, not a practical
+verifier recommendation.  This replaces an earlier draft's
+`KeyShapeCheck` (effective spread / peak-to-average) route, which the
+paper no longer states.
+
+### Proof-status summary (companion paper)
+
+| Statement | Status in paper |
+|-----------|-----------------|
+| Counterexamples (MBS, M-S-UEO, wNR) | Constructive + verified here |
+| ADMSW24 §5.1 unsound on verifier-accepted domain | Four identified gaps |
+| Honest keys pass `KeyNormCheck` | Exact theorem |
+| Constant-`q00` MBS under `KeyNormCheck` | Theorem (real-valued norm) |
+| Arbitrary keys under per-coordinate floor | Theorem (real-valued norm; honest keys often fail floor) |
+| Non-constant `q00` under plain `KeyNormCheck` | **Open** |
+| Full BUFF restoration from norm floor alone | **Not claimed** |
+| Reference `PolyQnorm` = intended form on all accepted keys | Requires `KeyIdentityCheck`; not claimed for every decoded pk |
 
 ## Cascade into Düzlü, Struck 2024/1669
 
@@ -472,11 +492,12 @@ This artifact is suitable for accompanying a paper that:
   the BUFF analysis of HAWK in ADMSW24 §5.1, exposed by the
   verifier-accepted public-key domain (see *Why the HAWK proofs in
   ADMSW24 §5.1 are unsound for this pk* for the line-by-line account),
-- proposes (separately, not in this artifact) candidate public-key
-  validity checks that exclude this family while accepting every honestly
-  generated key (`KeyNormCheck`, and optionally `KeyShapeCheck`; the
-  `q00[0] ≥ ℓ_low` clause of `KeyNormCheck` accepts honest keys with
-  probability exactly 1, since `ℓ_low` is keygen's own minimum).
+- records (separately, not in this artifact) that HAWK key generation
+  already enforces a norm floor (`KeyNormCheck`: `q00[0] ≥ ℓ_low`) that
+  rejects every witness here with probability 1 on honest keys, and
+  states conditional theorems for what enforcing that floor would buy
+  for constant-`q00` keys when the norm matches the intended quadratic
+  form (`KeyIdentityCheck`); it does not claim full BUFF restoration.
 
 It is **not** suitable as backing for SUF-CMA, EUF-CMA, S-CEO, or S-DEO
 claims.

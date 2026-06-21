@@ -12,15 +12,16 @@ implementations.  Encoding is performed by the HAWK authors' own
 `Extra/hawk-py/codec.py` only.
 
 This artifact is the companion to the paper
-*Weak Keys Break the BUFF Security of HAWK*, which contains the proof
-analysis, candidate verifier-side checks (`KeyNormCheck`, `KeyShapeCheck`),
-and the positive theorems.
-The paper's §Proof Status and Open Problems states what is proved and what
-remains open, including the gap between real-valued theorems and the
-shipped fixed-point verifier.
-This repository ships only the empirical witnesses against
-the unmodified verifier; see `CLAIMS.md` for how the witnesses map to
-the paper's claims.
+*Weak Keys Break the BUFF Security of HAWK*, which contains the proof-gap
+analysis, the key-generation bounds the verifier omits (`KeyNormCheck`,
+`KeyIdentityCheck`), and conditional positive theorems.
+The paper's §Proof Status and Open Problems states what is proved, what
+assumes the intended real-valued quadratic form, and what remains open,
+including the gap between those theorems and the shipped fixed-point
+`PolyQnorm` computation.
+This repository ships only the empirical witnesses against the unmodified
+verifier; see `CLAIMS.md` for how the witnesses map to the paper's claims
+and `WITNESS_STATS.md` for digests and measured norms.
 
 ## Summary
 
@@ -76,6 +77,7 @@ python3 drivers/verify_kat.py --max-records 5 vectors/kat/wnr_hawk*.rsp
 hawk-weak-keys/
 ├── README.md                       you are here
 ├── CLAIMS.md                       precise BUFF claims, definitions, scope
+├── WITNESS_STATS.md                digests, qnorms, record counts
 ├── docker/
 │   ├── Dockerfile                  pinned ubuntu:22.04 + gcc + python3 + numpy/sympy
 │   └── reproduce.sh                end-to-end reproduction script
